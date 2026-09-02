@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的雲端空間 - 支援拖曳上傳</title>
+    <title>我的雲端空間 - 真實線上預覽</title>
     <style>
         /* ================= 全域與變數 ================= */
         :root {
@@ -48,31 +48,13 @@
         .nav-item.active { background-color: var(--active-bg); color: var(--active-text); font-weight: bold; }
 
         /* ================= 主內容 ================= */
-        .main-content { 
-            flex: 1; padding: 20px; overflow-y: auto; background-color: var(--card-bg); 
-            border-radius: 16px 0 0 0; border: 1px solid var(--border-color); 
-            border-bottom: none; border-right: none; display: flex; flex-direction: column;
-            position: relative; /* 為了拖曳遮罩定位 */
-        }
+        .main-content { flex: 1; padding: 20px; overflow-y: auto; background-color: var(--card-bg); border-radius: 16px 0 0 0; border: 1px solid var(--border-color); border-bottom: none; border-right: none; display: flex; flex-direction: column; position: relative; }
         
-        /* 拖曳檔案時的視覺回饋 */
-        .main-content.drag-over {
-            background-color: var(--drop-bg);
-            border: 2px dashed var(--active-text);
-        }
-        /* 拖曳提示文字 */
-        .drag-overlay-text {
-            display: none;
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 2rem; font-weight: bold; color: var(--active-text);
-            pointer-events: none; /* 避免干擾拖曳事件 */
-        }
+        .main-content.drag-over { background-color: var(--drop-bg); border: 2px dashed var(--active-text); }
+        .drag-overlay-text { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2rem; font-weight: bold; color: var(--active-text); pointer-events: none; }
         .main-content.drag-over .drag-overlay-text { display: block; }
         .main-content.drag-over > *:not(.drag-overlay-text) { opacity: 0.3; }
 
-        /* 麵包屑導覽 */
         .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; font-size: 1.1rem; font-weight: 500; color: var(--text-color); }
         .breadcrumb-item { cursor: pointer; padding: 4px 8px; border-radius: 4px; }
         .breadcrumb-item:hover { background-color: var(--hover-bg); }
@@ -89,23 +71,27 @@
         .icon { font-size: 1.5rem; }
         .card-large .icon { font-size: 3.5rem; margin-bottom: 10px; }
         .filename { font-size: 0.9rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
-
         .empty-state { text-align: center; color: var(--text-light); padding: 40px; font-size: 1.1rem; grid-column: 1 / -1; }
 
-        /* ================= 彈出元件 ================= */
+        /* ================= 預覽視窗 ================= */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--modal-overlay); justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(2px); }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background-color: var(--bg-color); width: 85%; max-width: 900px; height: 80%; border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }
+        .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .close-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-light); }
+        
+        /* 預覽內容區 */
+        .modal-body { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; overflow-y: auto; background-color: #111; color: white;}
+        .modal-body img, .modal-body video { max-width: 100%; max-height: 100%; object-fit: contain; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .modal-body pre { background-color: #222; color: #0f0; padding: 20px; border-radius: 8px; width: 100%; white-space: pre-wrap; font-size: 14px; text-align: left; overflow-y: auto; height: 100%; margin: 0; font-family: monospace; }
+        .modal-fallback { text-align: center; display: flex; flex-direction: column; gap: 15px; align-items: center; justify-content: center; color: #ccc; }
+
+        /* 右鍵與提示 */
         .context-menu { position: fixed; background-color: var(--menu-bg); border: 1px solid var(--border-color); box-shadow: 0 4px 6px rgba(0,0,0,0.2); border-radius: 8px; padding: 8px 0; z-index: 1000; display: none; min-width: 150px; }
         .context-menu.active { display: block; }
         .menu-item { padding: 10px 20px; cursor: pointer; font-size: 0.9rem; color: var(--text-color); display: flex; align-items: center; gap: 10px; }
         .menu-item:hover { background-color: var(--menu-hover); }
         .menu-item.danger { color: #ea4335; }
-
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--modal-overlay); justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(2px); }
-        .modal-overlay.active { display: flex; }
-        .modal-content { background-color: var(--bg-color); width: 80%; max-width: 700px; height: 60%; border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }
-        .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
-        .close-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-light); }
-        .modal-body { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 15px; }
-        
         .toast { position: fixed; bottom: 30px; right: 30px; background-color: #323232; color: white; padding: 15px 25px; border-radius: 4px; font-size: 0.95rem; display: none; z-index: 3000; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
         .toast.active { display: block; animation: slideUp 0.3s ease; }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -114,14 +100,9 @@
 <body>
 
     <header>
-        <div class="logo" id="goHomeBtn">
-            <span style="color:#4285F4; font-size: 1.5rem;">❖</span> 雲端硬碟
-        </div>
+        <div class="logo" id="goHomeBtn"><span style="color:#4285F4; font-size: 1.5rem;">❖</span> 雲端硬碟</div>
         <div class="search-bar"><input type="text" placeholder="在雲端硬碟中搜尋..."></div>
-        <div class="header-right">
-            <button class="theme-toggle" id="themeBtn" title="切換深色模式">🌙</button>
-            <div class="user-profile">U</div>
-        </div>
+        <div class="header-right"><button class="theme-toggle" id="themeBtn" title="切換深色模式">🌙</button><div class="user-profile">U</div></div>
     </header>
 
     <div class="container">
@@ -130,7 +111,6 @@
                 <button class="btn-new" id="newFolderBtn">➕ 新資料夾</button>
                 <button class="btn-upload" id="uploadBtn">⬆️ 隨機上傳</button>
             </div>
-            
             <ul class="nav-list">
                 <li class="nav-item active" id="navHome">🏠 我的雲端硬碟</li>
                 <li class="nav-item">💻 電腦</li>
@@ -139,264 +119,225 @@
         </aside>
 
         <main class="main-content" id="mainArea">
-            <div class="drag-overlay-text">⬇️ 鬆開滑鼠以上傳檔案</div>
-            
+            <div class="drag-overlay-text">⬇️ 鬆開滑鼠以真實上傳檔案</div>
             <div class="breadcrumb" id="breadcrumb"></div>
-
             <div class="section-title">資料夾</div>
             <div class="file-grid" id="folderGrid"></div>
-
             <div class="section-title">檔案</div>
             <div class="file-grid" id="fileGrid"></div>
         </main>
     </div>
 
+    <!-- 預覽視窗 -->
     <div class="modal-overlay" id="fileModal">
         <div class="modal-content">
             <div class="modal-header">
                 <div id="modalTitle" style="font-weight: 500;">檔案名稱</div>
                 <button class="close-btn" id="closeModalBtn">✖</button>
             </div>
-            <div class="modal-body">
-                <div id="modalIcon" style="font-size: 5rem;">📄</div>
-                <div style="color: var(--text-light);">檔案預覽畫面</div>
-            </div>
+            <!-- 預覽內容區塊 (動態替換) -->
+            <div class="modal-body" id="modalBody"></div>
         </div>
     </div>
 
-    <div class="context-menu" id="contextMenu">
-        <div class="menu-item" id="menuRename">✏️ 重新命名</div>
-        <div class="menu-item danger" id="menuDelete">🗑️ 刪除</div>
-    </div>
-
+    <div class="context-menu" id="contextMenu"><div class="menu-item" id="menuRename">✏️ 重新命名</div><div class="menu-item danger" id="menuDelete">🗑️ 刪除</div></div>
     <div class="toast" id="toast"></div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // 資料庫
-            const defaultData = [
-                { id: 'f1', parentId: 'root', type: 'folder', name: '工作專案' },
-                { id: 'file1', parentId: 'root', type: 'file', name: '使用說明.txt', icon: '📝' }
-            ];
-
+            const defaultData = [{ id: 'f1', parentId: 'root', type: 'folder', name: '工作專案' }, { id: 'file1', parentId: 'root', type: 'file', name: '使用說明.txt', icon: '📝' }];
             let fileSystem = JSON.parse(localStorage.getItem('myCloudData')) || defaultData;
             let currentFolderId = 'root'; 
             let currentContextTargetId = null; 
+            
+            // 🔥 新增：用來把「真實檔案」存放在這次網頁開啟期間的記憶體中
+            let runtimeRealFiles = {}; 
+            let currentPreviewUrl = null;
 
             const folderGrid = document.getElementById('folderGrid');
             const fileGrid = document.getElementById('fileGrid');
             const breadcrumb = document.getElementById('breadcrumb');
             const contextMenu = document.getElementById('contextMenu');
             const mainArea = document.getElementById('mainArea');
+            const modalBody = document.getElementById('modalBody');
 
             function saveData() { localStorage.setItem('myCloudData', JSON.stringify(fileSystem)); }
             function generateId() { return Math.random().toString(36).substr(2, 9); }
-
-            // 判斷檔案圖示的小工具
             function getIconByExtension(filename) {
                 const ext = filename.split('.').pop().toLowerCase();
-                if (['png', 'jpg', 'jpeg', 'gif', 'svg'].includes(ext)) return '🖼️';
-                if (['mp4', 'mov', 'avi'].includes(ext)) return '🎬';
+                if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) return '🖼️';
+                if (['mp4', 'mov', 'avi', 'webm'].includes(ext)) return '🎬';
                 if (['mp3', 'wav'].includes(ext)) return '🎵';
                 if (['pdf'].includes(ext)) return '📕';
-                if (['doc', 'docx'].includes(ext)) return '📘';
+                if (['doc', 'docx', 'txt', 'md', 'csv', 'js', 'html', 'css', 'json'].includes(ext)) return '📝';
                 if (['xls', 'xlsx'].includes(ext)) return '📊';
-                if (['zip', 'rar'].includes(ext)) return '📦';
+                if (['zip', 'rar', '7z'].includes(ext)) return '📦';
                 return '📄';
             }
 
-            // 渲染畫面
             function render() {
-                folderGrid.innerHTML = '';
-                fileGrid.innerHTML = '';
-                
+                folderGrid.innerHTML = ''; fileGrid.innerHTML = '';
                 const currentItems = fileSystem.filter(item => item.parentId === currentFolderId);
                 const folders = currentItems.filter(item => item.type === 'folder');
                 const files = currentItems.filter(item => item.type === 'file');
 
                 if (folders.length === 0) folderGrid.innerHTML = '<div class="empty-state">沒有資料夾</div>';
-                folders.forEach(folder => {
-                    folderGrid.innerHTML += `
-                        <div class="card" data-id="${folder.id}">
-                            <span class="icon">📁</span>
-                            <span class="filename">${folder.name}</span>
-                        </div>`;
-                });
-
-                if (files.length === 0) fileGrid.innerHTML = '<div class="empty-state">沒有檔案</div>';
-                files.forEach(file => {
-                    fileGrid.innerHTML += `
-                        <div class="card card-large" data-id="${file.id}">
-                            <span class="icon">${file.icon}</span>
-                            <span class="filename">${file.name}</span>
-                        </div>`;
-                });
-                renderBreadcrumb();
-            }
-
-            function renderBreadcrumb() {
-                breadcrumb.innerHTML = '';
-                let path = [];
-                let currId = currentFolderId;
+                folders.forEach(folder => folderGrid.innerHTML += `<div class="card" data-id="${folder.id}"><span class="icon">📁</span><span class="filename">${folder.name}</span></div>`);
                 
+                if (files.length === 0) fileGrid.innerHTML = '<div class="empty-state">沒有檔案</div>';
+                files.forEach(file => fileGrid.innerHTML += `<div class="card card-large" data-id="${file.id}"><span class="icon">${file.icon}</span><span class="filename">${file.name}</span></div>`);
+                
+                breadcrumb.innerHTML = '';
+                let path = []; let currId = currentFolderId;
                 while (currId !== 'root') {
                     const folder = fileSystem.find(f => f.id === currId);
-                    if (folder) {
-                        path.unshift(folder); 
-                        currId = folder.parentId;
-                    } else break;
+                    if (folder) { path.unshift(folder); currId = folder.parentId; } else break;
                 }
-                
                 breadcrumb.innerHTML = `<div class="breadcrumb-item" data-id="root">我的雲端硬碟</div>`;
-                path.forEach(folder => {
-                    breadcrumb.innerHTML += `<span class="breadcrumb-separator">›</span>`;
-                    breadcrumb.innerHTML += `<div class="breadcrumb-item" data-id="${folder.id}">${folder.name}</div>`;
-                });
+                path.forEach(folder => { breadcrumb.innerHTML += `<span class="breadcrumb-separator">›</span><div class="breadcrumb-item" data-id="${folder.id}">${folder.name}</div>`; });
             }
-
             render();
 
-            // ================= 拖曳上傳核心功能 (Drag & Drop) =================
-            
-            // 1. 當檔案拖曳進入範圍時 (顯示藍色虛線框)
-            mainArea.addEventListener('dragover', (e) => {
-                e.preventDefault(); // 必須阻止預設行為，否則無法觸發 drop
-                mainArea.classList.add('drag-over');
-            });
-
-            // 2. 當檔案拖曳離開範圍時 (恢復原狀)
-            mainArea.addEventListener('dragleave', (e) => {
-                e.preventDefault();
-                // 確保滑鼠是真的離開 mainArea，而不是移到裡面的子元素
-                if (e.target === mainArea) {
-                    mainArea.classList.remove('drag-over');
-                }
-            });
-
-            // 3. 當檔案放開時 (處理檔案資料)
+            // ================= 拖曳真實檔案 =================
+            mainArea.addEventListener('dragover', (e) => { e.preventDefault(); mainArea.classList.add('drag-over'); });
+            mainArea.addEventListener('dragleave', (e) => { e.preventDefault(); if (e.target === mainArea) mainArea.classList.remove('drag-over'); });
             mainArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                mainArea.classList.remove('drag-over');
-
-                // 取得被拖進來的所有檔案
+                e.preventDefault(); mainArea.classList.remove('drag-over');
                 const droppedFiles = e.dataTransfer.files;
-                
                 if (droppedFiles.length > 0) {
-                    showToast(`⏳ 正在處理 ${droppedFiles.length} 個檔案...`);
-                    
-                    // 迴圈處理每一個拖進來的檔案
                     Array.from(droppedFiles).forEach(file => {
-                        fileSystem.push({
-                            id: generateId(),
-                            parentId: currentFolderId,
-                            type: 'file',
-                            name: file.name, // 讀取真實電腦檔案的檔名
-                            icon: getIconByExtension(file.name) // 根據副檔名給圖示
-                        });
+                        const newId = generateId();
+                        fileSystem.push({ id: newId, parentId: currentFolderId, type: 'file', name: file.name, icon: getIconByExtension(file.name) });
+                        
+                        // 🔥 核心機制：將真實的 File 物件存入暫存記憶體字典中
+                        runtimeRealFiles[newId] = file;
                     });
-
-                    // 模擬一點點上傳時間再重整畫面
-                    setTimeout(() => {
-                        saveData();
-                        render();
-                        showToast(`✅ 成功上傳 ${droppedFiles.length} 個檔案`);
-                    }, 500);
+                    saveData(); render(); showToast(`✅ 成功上傳並暫存 ${droppedFiles.length} 個檔案以供預覽`);
                 }
             });
-            // ===============================================================
 
-            // 基本互動
+            // ================= 開啟預覽功能 =================
+            mainArea.addEventListener('dblclick', (e) => {
+                const clickedCard = e.target.closest('.card');
+                if (!clickedCard) return;
+                
+                const itemId = clickedCard.getAttribute('data-id');
+                const item = fileSystem.find(f => f.id === itemId);
+                
+                if (item.type === 'folder') {
+                    currentFolderId = item.id; render();
+                } else {
+                    document.getElementById('modalTitle').textContent = item.name;
+                    
+                    // 清空上一次的預覽畫面和釋放記憶體
+                    modalBody.innerHTML = '';
+                    if (currentPreviewUrl) {
+                        URL.revokeObjectURL(currentPreviewUrl);
+                        currentPreviewUrl = null;
+                    }
+
+                    // 檢查這個檔案是否有「真實內容」還在記憶體中
+                    const realFile = runtimeRealFiles[item.id];
+
+                    if (realFile) {
+                        // 判斷檔案類型來決定怎麼預覽
+                        const type = realFile.type || getIconByExtension(realFile.name);
+
+                        if (type.startsWith('image/')) {
+                            currentPreviewUrl = URL.createObjectURL(realFile);
+                            modalBody.innerHTML = `<img src="${currentPreviewUrl}" alt="預覽圖">`;
+                        } else if (type.startsWith('video/')) {
+                            currentPreviewUrl = URL.createObjectURL(realFile);
+                            modalBody.innerHTML = `<video src="${currentPreviewUrl}" controls autoplay></video>`;
+                        } else if (type.startsWith('text/') || item.name.match(/\.(txt|md|js|html|css|json|csv)$/i)) {
+                            // 純文字類型的檔案，直接讀取內容
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                                modalBody.innerHTML = `<pre>${event.target.result.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`;
+                            };
+                            reader.readAsText(realFile);
+                        } else {
+                            // 真實檔案，但瀏覽器不支援直接預覽 (例如 .zip 或 .docx)
+                            modalBody.innerHTML = `
+                                <div class="modal-fallback">
+                                    <div style="font-size: 5rem;">📦</div>
+                                    <h3>不支援線上預覽此格式</h3>
+                                    <p>已捕捉到檔案: ${realFile.size} Bytes</p>
+                                </div>`;
+                        }
+                    } else {
+                        // 如果在字典裡找不到真實檔案 (可能是之前上傳的，或是重整過網頁)
+                        modalBody.innerHTML = `
+                            <div class="modal-fallback">
+                                <div style="font-size: 5rem;">${item.icon}</div>
+                                <h3>無法預覽真實內容</h3>
+                                <p style="max-width: 400px; line-height:1.6;">這是歷史紀錄或虛擬檔案。<br>因為本網站為純前端環境，重新整理後，記憶體中的真實檔案已釋放。<br>👉 <b>請重新將實體檔案拖曳進來，即可進行預覽。</b></p>
+                            </div>`;
+                    }
+                    
+                    document.getElementById('fileModal').classList.add('active');
+                }
+            });
+
+            // 其他基本功能
             mainArea.addEventListener('click', (e) => {
                 contextMenu.classList.remove('active'); 
                 const crumb = e.target.closest('.breadcrumb-item');
-                if (crumb) {
-                    currentFolderId = crumb.getAttribute('data-id');
-                    render();
-                    return;
-                }
+                if (crumb) { currentFolderId = crumb.getAttribute('data-id'); render(); return; }
                 const clickedCard = e.target.closest('.card');
                 document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
-                if (clickedCard) {
-                    clickedCard.classList.add('selected');
-                    e.stopPropagation(); 
-                }
+                if (clickedCard) { clickedCard.classList.add('selected'); e.stopPropagation(); }
             });
 
             mainArea.addEventListener('contextmenu', (e) => {
                 const clickedCard = e.target.closest('.card');
                 if (clickedCard) {
-                    e.preventDefault();
-                    currentContextTargetId = clickedCard.getAttribute('data-id');
+                    e.preventDefault(); currentContextTargetId = clickedCard.getAttribute('data-id');
                     document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
                     clickedCard.classList.add('selected');
-                    contextMenu.style.left = `${e.clientX}px`;
-                    contextMenu.style.top = `${e.clientY}px`;
-                    contextMenu.classList.add('active');
-                } else {
-                    contextMenu.classList.remove('active');
-                }
+                    contextMenu.style.left = `${e.clientX}px`; contextMenu.style.top = `${e.clientY}px`; contextMenu.classList.add('active');
+                } else contextMenu.classList.remove('active');
             });
 
             document.addEventListener('click', () => contextMenu.classList.remove('active'));
-
-            mainArea.addEventListener('dblclick', (e) => {
-                const clickedCard = e.target.closest('.card');
-                if (clickedCard) {
-                    const itemId = clickedCard.getAttribute('data-id');
-                    const item = fileSystem.find(f => f.id === itemId);
-                    if (item.type === 'folder') {
-                        currentFolderId = item.id;
-                        render();
-                    } else {
-                        document.getElementById('modalTitle').textContent = item.name;
-                        document.getElementById('modalIcon').textContent = item.icon;
-                        document.getElementById('fileModal').classList.add('active');
-                    }
-                }
-            });
 
             document.getElementById('menuRename').addEventListener('click', () => {
                 if (!currentContextTargetId) return;
                 const item = fileSystem.find(f => f.id === currentContextTargetId);
                 const newName = prompt('重新命名為：', item.name);
-                if (newName && newName.trim() !== '') {
-                    item.name = newName;
-                    saveData(); render(); showToast('✅ 已重新命名');
-                }
+                if (newName && newName.trim() !== '') { item.name = newName; saveData(); render(); showToast('✅ 已重新命名'); }
             });
 
             document.getElementById('menuDelete').addEventListener('click', () => {
                 if (!currentContextTargetId) return;
                 fileSystem = fileSystem.filter(f => f.id !== currentContextTargetId);
-                saveData(); render(); showToast('🗑️ 已刪除');
-                currentContextTargetId = null;
+                delete runtimeRealFiles[currentContextTargetId]; // 刪除時也把記憶體清掉
+                saveData(); render(); showToast('🗑️ 已刪除'); currentContextTargetId = null;
             });
 
             document.getElementById('newFolderBtn').addEventListener('click', () => {
                 const name = prompt('新資料夾名稱：', '未命名資料夾');
-                if (name && name.trim() !== '') {
-                    fileSystem.push({ id: generateId(), parentId: currentFolderId, type: 'folder', name: name });
-                    saveData(); render(); showToast('✅ 資料夾建立成功');
-                }
+                if (name && name.trim() !== '') { fileSystem.push({ id: generateId(), parentId: currentFolderId, type: 'folder', name: name }); saveData(); render(); showToast('✅ 資料夾建立成功'); }
             });
 
-            // 保留原本的點擊按鈕隨機上傳功能
             document.getElementById('uploadBtn').addEventListener('click', () => {
-                showToast('⏳ 隨機產生檔案中...');
+                showToast('⏳ 產生虛擬檔案...');
                 setTimeout(() => {
                     const fakeFiles = ['設計圖.png', '報告.pdf', '預算表.xlsx', '筆記.txt', '影片.mp4'];
                     const randName = fakeFiles[Math.floor(Math.random() * fakeFiles.length)];
-                    fileSystem.push({
-                        id: generateId(), parentId: currentFolderId, type: 'file',
-                        name: randName, icon: getIconByExtension(randName)
-                    });
-                    saveData(); render(); showToast('✅ 檔案上傳完成');
+                    fileSystem.push({ id: generateId(), parentId: currentFolderId, type: 'file', name: randName, icon: getIconByExtension(randName) });
+                    saveData(); render(); showToast('✅ 虛擬檔案上傳完成');
                 }, 800);
             });
 
             document.getElementById('goHomeBtn').addEventListener('click', () => { currentFolderId = 'root'; render(); });
             document.getElementById('navHome').addEventListener('click', () => { currentFolderId = 'root'; render(); });
-            document.getElementById('closeModalBtn').addEventListener('click', () => { document.getElementById('fileModal').classList.remove('active'); });
+            
+            // 關閉預覽視窗 (順便釋放影片音軌)
+            document.getElementById('closeModalBtn').addEventListener('click', () => { 
+                document.getElementById('fileModal').classList.remove('active'); 
+                modalBody.innerHTML = ''; 
+            });
             
             document.getElementById('themeBtn').addEventListener('click', function() {
                 const isDark = document.body.getAttribute('data-theme') === 'dark';
@@ -406,8 +347,7 @@
 
             function showToast(msg) {
                 const toast = document.getElementById('toast');
-                toast.textContent = msg;
-                toast.classList.add('active');
+                toast.textContent = msg; toast.classList.add('active');
                 setTimeout(() => toast.classList.remove('active'), 3000);
             }
         });
