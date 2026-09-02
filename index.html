@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的雲端空間 - 完整導覽列升級版</title>
+    <title>我的雲端空間 - 支援下載版</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
@@ -76,7 +76,6 @@
         .card-large .icon { font-size: 3.5rem; margin-bottom: 10px; }
         .filename { font-size: 0.9rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
         
-        /* 空白狀態與分享者標示 */
         .empty-state { text-align: center; color: var(--text-light); padding: 40px; font-size: 1.1rem; grid-column: 1 / -1; }
         .shared-by { font-size: 0.75rem; color: var(--text-light); margin-top: 5px; }
 
@@ -102,6 +101,8 @@
         .menu-item { padding: 10px 20px; cursor: pointer; font-size: 0.9rem; color: var(--text-color); display: flex; align-items: center; gap: 10px; }
         .menu-item:hover { background-color: var(--menu-hover); }
         .menu-item.danger { color: #ea4335; }
+        .menu-divider { height: 1px; background-color: var(--border-color); margin: 4px 0; }
+        
         .toast { position: fixed; bottom: 30px; right: 30px; background-color: #323232; color: white; padding: 15px 25px; border-radius: 4px; font-size: 0.95rem; display: none; z-index: 3000; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
         .toast.active { display: block; animation: slideUp 0.3s ease; }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -121,7 +122,6 @@
                 <button class="btn-new" id="newFolderBtn">➕ 新資料夾</button>
             </div>
             <ul class="nav-list">
-                <!-- 加入對應的 ID 以便切換 -->
                 <li class="nav-item active" id="navHome">🏠 我的雲端硬碟</li>
                 <li class="nav-item" id="navComputer">💻 電腦</li>
                 <li class="nav-item" id="navShared">👥 與我共用</li>
@@ -148,26 +148,26 @@
         </div>
     </div>
 
-    <div class="context-menu" id="contextMenu"><div class="menu-item" id="menuRename">✏️ 重新命名</div><div class="menu-item danger" id="menuDelete">🗑️ 刪除</div></div>
+    <!-- 更新了右鍵選單，加入下載選項 -->
+    <div class="context-menu" id="contextMenu">
+        <div class="menu-item" id="menuDownload">⬇️ 下載</div>
+        <div class="menu-divider"></div>
+        <div class="menu-item" id="menuRename">✏️ 重新命名</div>
+        <div class="menu-item danger" id="menuDelete">🗑️ 刪除</div>
+    </div>
+    
     <div class="toast" id="toast"></div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // 預設資料：加入「與我共用」的模擬檔案
             const defaultData = [
-                // 我的雲端硬碟 (root) 的檔案
                 { id: 'f1', parentId: 'root', type: 'folder', name: '工作專案' },
                 { id: 'file_demo', parentId: 'root', type: 'file', name: '歡迎使用.txt', icon: '📝' },
-                
-                // 與我共用 (shared) 的檔案
                 { id: 'shared_f1', parentId: 'shared', type: 'folder', name: '跨部門協作資源', owner: '王經理' },
                 { id: 'shared_file1', parentId: 'shared', type: 'file', name: '2026_Q4_行銷預算表.xlsx', icon: '📊', owner: 'Alice' },
-                { id: 'shared_file2', parentId: 'shared', type: 'file', name: '視覺設計規範.pdf', icon: '📕', owner: '設計部' }
             ];
             
             let fileSystem = JSON.parse(localStorage.getItem('myCloudData')) || defaultData;
-            
-            // 記錄當前位置：預設為 root (我的雲端硬碟)
             let currentFolderId = 'root'; 
             let currentContextTargetId = null; 
             
@@ -197,16 +197,13 @@
                 return '📄';
             }
 
-            // ================= 核心渲染引擎 =================
             function render() {
                 folderGrid.innerHTML = ''; fileGrid.innerHTML = '';
                 
-                // 找出目前所在層級的所有檔案
                 const currentItems = fileSystem.filter(item => item.parentId === currentFolderId);
                 const folders = currentItems.filter(item => item.type === 'folder');
                 const files = currentItems.filter(item => item.type === 'file');
 
-                // 渲染資料夾
                 if (folders.length === 0) folderGrid.innerHTML = '<div class="empty-state">沒有資料夾</div>';
                 folders.forEach(folder => {
                     const ownerText = folder.owner ? `<div class="shared-by">共用者: ${folder.owner}</div>` : '';
@@ -219,7 +216,6 @@
                         </div>`;
                 });
                 
-                // 渲染檔案
                 if (files.length === 0) fileGrid.innerHTML = '<div class="empty-state">目前沒有檔案</div>';
                 files.forEach(file => {
                     const ownerText = file.owner ? `<div class="shared-by">共用者: ${file.owner}</div>` : '';
@@ -231,20 +227,17 @@
                         </div>`;
                 });
                 
-                // 渲染麵包屑導覽 (動態判斷是屬於哪個大區域)
                 breadcrumb.innerHTML = '';
                 let path = []; 
                 let currId = currentFolderId;
                 let rootName = "我的雲端硬碟";
                 let rootId = "root";
 
-                // 往上找父資料夾，直到碰到頂層 (root, shared, 或 computer)
                 while (currId !== 'root' && currId !== 'shared' && currId !== 'computer') {
                     const folder = fileSystem.find(f => f.id === currId);
                     if (folder) { path.unshift(folder); currId = folder.parentId; } else break;
                 }
                 
-                // 判斷頂層名稱
                 if (currId === 'shared') { rootName = "與我共用"; rootId = "shared"; }
                 else if (currId === 'computer') { rootName = "電腦"; rootId = "computer"; }
 
@@ -253,33 +246,16 @@
             }
             render();
 
-            // ================= 左側選單切換功能 =================
             const navItems = document.querySelectorAll('.nav-item');
             function setActiveNav(navId) {
                 navItems.forEach(item => item.classList.remove('active'));
                 document.getElementById(navId).classList.add('active');
             }
 
-            document.getElementById('navHome').addEventListener('click', () => {
-                currentFolderId = 'root';
-                setActiveNav('navHome');
-                render();
-            });
+            document.getElementById('navHome').addEventListener('click', () => { currentFolderId = 'root'; setActiveNav('navHome'); render(); });
+            document.getElementById('navComputer').addEventListener('click', () => { currentFolderId = 'computer'; setActiveNav('navComputer'); render(); });
+            document.getElementById('navShared').addEventListener('click', () => { currentFolderId = 'shared'; setActiveNav('navShared'); render(); });
 
-            document.getElementById('navComputer').addEventListener('click', () => {
-                currentFolderId = 'computer';
-                setActiveNav('navComputer');
-                render();
-            });
-
-            document.getElementById('navShared').addEventListener('click', () => {
-                currentFolderId = 'shared';
-                setActiveNav('navShared');
-                render();
-            });
-
-
-            // ================= 其他功能 (拖曳、預覽、右鍵) =================
             mainArea.addEventListener('dragover', (e) => { e.preventDefault(); mainArea.classList.add('drag-over'); });
             mainArea.addEventListener('dragleave', (e) => { e.preventDefault(); if (e.target === mainArea) mainArea.classList.remove('drag-over'); });
             mainArea.addEventListener('drop', (e) => {
@@ -288,7 +264,6 @@
                 if (droppedFiles.length > 0) {
                     Array.from(droppedFiles).forEach(file => {
                         const newId = generateId();
-                        // 檔案會上傳到目前所在的資料夾 (支援 root, shared, computer 等)
                         fileSystem.push({ id: newId, parentId: currentFolderId, type: 'file', name: file.name, icon: getIconByExtension(file.name) });
                         runtimeRealFiles[newId] = file;
                     });
@@ -343,7 +318,7 @@
                             };
                             reader.readAsArrayBuffer(realFile);
                         } else if (['ppt', 'pptx'].includes(ext)) {
-                            modalBody.innerHTML = `<div class="modal-fallback"><div style="font-size: 5rem;">🟧</div><h3 style="color:#FFA500;">不支援 PowerPoint 線上預覽</h3><p>純前端環境無法直接解析渲染簡報動畫與排版。</p></div>`;
+                            modalBody.innerHTML = `<div class="modal-fallback"><div style="font-size: 5rem;">🟧</div><h3 style="color:#FFA500;">不支援 PowerPoint 線上預覽</h3></div>`;
                         } else if (['txt', 'md', 'html', 'css', 'js', 'json'].includes(ext) || realFile.type.startsWith('text/')) {
                             const reader = new FileReader();
                             reader.onload = (event) => { modalBody.innerHTML = `<pre>${event.target.result.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`; };
@@ -356,7 +331,7 @@
                             <div class="modal-fallback">
                                 <div style="font-size: 5rem;">${item.icon}</div>
                                 <h3>無法預覽真實內容</h3>
-                                <p style="max-width: 400px; line-height:1.6;">這是歷史紀錄或系統預設的虛擬檔案。<br>👉 <b>請將實體檔案拖曳進網頁，即可進行預覽。</b></p>
+                                <p style="max-width: 400px; line-height:1.6;">👉 <b>請將實體檔案拖曳進網頁，即可進行預覽。</b></p>
                             </div>`;
                     }
                     
@@ -370,7 +345,6 @@
                 if (crumb) { 
                     currentFolderId = crumb.getAttribute('data-id'); 
                     render(); 
-                    // 同步更新左側選單的 Active 狀態
                     if (currentFolderId === 'root') setActiveNav('navHome');
                     if (currentFolderId === 'shared') setActiveNav('navShared');
                     if (currentFolderId === 'computer') setActiveNav('navComputer');
@@ -393,6 +367,45 @@
 
             document.addEventListener('click', () => contextMenu.classList.remove('active'));
 
+            // ================= 新增：下載功能邏輯 =================
+            document.getElementById('menuDownload').addEventListener('click', () => {
+                if (!currentContextTargetId) return;
+                const item = fileSystem.find(f => f.id === currentContextTargetId);
+                
+                // 資料夾暫不支援下載
+                if (item.type === 'folder') {
+                    showToast('⚠️ 暫不支援下載整個資料夾，請個別下載檔案');
+                    return;
+                }
+
+                const realFile = runtimeRealFiles[item.id];
+                let blobUrl;
+
+                if (realFile) {
+                    // 真實檔案下載：透過 URL.createObjectURL 把記憶體中的 File 給瀏覽器下載
+                    blobUrl = URL.createObjectURL(realFile);
+                } else {
+                    // 虛擬檔案下載：產生一個帶有說明文字的假檔案
+                    const fakeContent = `【虛擬檔案提示】\n\n這是一個在純前端網頁中模擬產生的虛擬檔案。\n您下載的檔名為：${item.name}\n\n如需測試真實下載功能，請將您的電腦檔案拖曳到網頁中，再對其點擊右鍵下載！`;
+                    const blob = new Blob([fakeContent], { type: 'text/plain;charset=utf-8' });
+                    blobUrl = URL.createObjectURL(blob);
+                }
+
+                // 建立隱藏的 <a> 標籤觸發下載
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = item.name; // 設定下載的預設檔名
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // 延遲釋放 URL 記憶體，確保瀏覽器有時間開始下載
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                
+                showToast(`✅ 正在下載：${item.name}`);
+            });
+
+            // 原本的右鍵功能
             document.getElementById('menuRename').addEventListener('click', () => {
                 if (!currentContextTargetId) return;
                 const item = fileSystem.find(f => f.id === currentContextTargetId);
@@ -412,16 +425,9 @@
                 if (name && name.trim() !== '') { fileSystem.push({ id: generateId(), parentId: currentFolderId, type: 'folder', name: name }); saveData(); render(); showToast('✅ 資料夾建立成功'); }
             });
 
-            document.getElementById('goHomeBtn').addEventListener('click', () => { 
-                currentFolderId = 'root'; 
-                setActiveNav('navHome');
-                render(); 
-            });
+            document.getElementById('goHomeBtn').addEventListener('click', () => { currentFolderId = 'root'; setActiveNav('navHome'); render(); });
             
-            document.getElementById('closeModalBtn').addEventListener('click', () => { 
-                document.getElementById('fileModal').classList.remove('active'); 
-                modalBody.innerHTML = ''; 
-            });
+            document.getElementById('closeModalBtn').addEventListener('click', () => { document.getElementById('fileModal').classList.remove('active'); modalBody.innerHTML = ''; });
             
             document.getElementById('themeBtn').addEventListener('click', function() {
                 const isDark = document.body.getAttribute('data-theme') === 'dark';
