@@ -3,12 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的雲端空間 - 全能文件預覽版</title>
+    <title>我的雲端空間 - 完整導覽列升級版</title>
     
-    <!-- 引入外部解析庫 CDN -->
-    <!-- 1. SheetJS: 用於解析 Excel (XLSX) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- 2. Mammoth.js: 用於解析 Word (DOCX) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
 
     <style>
@@ -78,7 +75,10 @@
         .icon { font-size: 1.5rem; }
         .card-large .icon { font-size: 3.5rem; margin-bottom: 10px; }
         .filename { font-size: 0.9rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
+        
+        /* 空白狀態與分享者標示 */
         .empty-state { text-align: center; color: var(--text-light); padding: 40px; font-size: 1.1rem; grid-column: 1 / -1; }
+        .shared-by { font-size: 0.75rem; color: var(--text-light); margin-top: 5px; }
 
         /* ================= 預覽視窗 ================= */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--modal-overlay); justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(4px); }
@@ -86,20 +86,12 @@
         .modal-content { background-color: var(--bg-color); width: 90%; max-width: 1000px; height: 85%; border-radius: 12px; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.5); overflow: hidden; }
         .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--header-bg);}
         .close-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-light); }
-        
-        /* 預覽內容區塊 */
         .modal-body { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow-y: auto; background-color: #202124; color: white;}
-        
-        /* 針對不同文件的樣式優化 */
         .modal-body img, .modal-body video { max-width: 100%; max-height: 100%; object-fit: contain; }
         .modal-body pre { background-color: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px; width: 95%; white-space: pre-wrap; font-size: 14px; text-align: left; overflow-y: auto; height: 95%; font-family: monospace; }
         .modal-fallback { text-align: center; display: flex; flex-direction: column; gap: 15px; align-items: center; justify-content: center; color: #ccc; }
-        
-        /* 文件預覽背景 (Word, Excel) */
         .document-preview-container { background: #f3f2f1; width: 100%; height: 100%; overflow: auto; padding: 20px; display: flex; justify-content: center; }
         .document-paper { background: white; color: black; padding: 40px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 800px; width: 100%; min-height: 100%; text-align: left; line-height: 1.6; }
-        
-        /* Excel 表格樣式 */
         table.excel-table { border-collapse: collapse; width: 100%; color: black; }
         table.excel-table th, table.excel-table td { border: 1px solid #d4d4d4; padding: 8px; text-align: left; }
         table.excel-table th { background-color: #f3f2f1; font-weight: bold; }
@@ -118,7 +110,7 @@
 <body>
 
     <header>
-        <div class="logo" id="goHomeBtn"><span style="color:#4285F4; font-size: 1.5rem;">❖</span> yu的私有雲端硬碟</div>
+        <div class="logo" id="goHomeBtn"><span style="color:#4285F4; font-size: 1.5rem;">❖</span> 雲端硬碟</div>
         <div class="search-bar"><input type="text" placeholder="在雲端硬碟中搜尋..."></div>
         <div class="header-right"><button class="theme-toggle" id="themeBtn" title="切換深色模式">🌙</button><div class="user-profile">U</div></div>
     </header>
@@ -129,9 +121,10 @@
                 <button class="btn-new" id="newFolderBtn">➕ 新資料夾</button>
             </div>
             <ul class="nav-list">
+                <!-- 加入對應的 ID 以便切換 -->
                 <li class="nav-item active" id="navHome">🏠 我的雲端硬碟</li>
-                <li class="nav-item">💻 電腦</li>
-                <li class="nav-item">👥 與我共用</li>
+                <li class="nav-item" id="navComputer">💻 電腦</li>
+                <li class="nav-item" id="navShared">👥 與我共用</li>
             </ul>
         </aside>
 
@@ -140,12 +133,11 @@
             <div class="breadcrumb" id="breadcrumb"></div>
             <div class="section-title">資料夾</div>
             <div class="file-grid" id="folderGrid"></div>
-            <div class="section-title">檔案 (請將 PDF/Word/Excel/圖片 拖曳進此處測試)</div>
+            <div class="section-title">檔案</div>
             <div class="file-grid" id="fileGrid"></div>
         </main>
     </div>
 
-    <!-- 預覽視窗 -->
     <div class="modal-overlay" id="fileModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -161,14 +153,24 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // 預設資料：加入「與我共用」的模擬檔案
             const defaultData = [
+                // 我的雲端硬碟 (root) 的檔案
                 { id: 'f1', parentId: 'root', type: 'folder', name: '工作專案' },
+                { id: 'file_demo', parentId: 'root', type: 'file', name: '歡迎使用.txt', icon: '📝' },
+                
+                // 與我共用 (shared) 的檔案
+                { id: 'shared_f1', parentId: 'shared', type: 'folder', name: '跨部門協作資源', owner: '王經理' },
+                { id: 'shared_file1', parentId: 'shared', type: 'file', name: '2026_Q4_行銷預算表.xlsx', icon: '📊', owner: 'Alice' },
+                { id: 'shared_file2', parentId: 'shared', type: 'file', name: '視覺設計規範.pdf', icon: '📕', owner: '設計部' }
             ];
+            
             let fileSystem = JSON.parse(localStorage.getItem('myCloudData')) || defaultData;
+            
+            // 記錄當前位置：預設為 root (我的雲端硬碟)
             let currentFolderId = 'root'; 
             let currentContextTargetId = null; 
             
-            // 存放實體檔案記憶體
             let runtimeRealFiles = {}; 
             let currentPreviewUrl = null;
 
@@ -182,7 +184,6 @@
             function saveData() { localStorage.setItem('myCloudData', JSON.stringify(fileSystem)); }
             function generateId() { return Math.random().toString(36).substr(2, 9); }
             
-            // 判斷附檔名與圖示
             function getIconByExtension(filename) {
                 const ext = filename.split('.').pop().toLowerCase();
                 if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'].includes(ext)) return '🖼️';
@@ -196,31 +197,89 @@
                 return '📄';
             }
 
-            // 渲染畫面
+            // ================= 核心渲染引擎 =================
             function render() {
                 folderGrid.innerHTML = ''; fileGrid.innerHTML = '';
+                
+                // 找出目前所在層級的所有檔案
                 const currentItems = fileSystem.filter(item => item.parentId === currentFolderId);
                 const folders = currentItems.filter(item => item.type === 'folder');
                 const files = currentItems.filter(item => item.type === 'file');
 
+                // 渲染資料夾
                 if (folders.length === 0) folderGrid.innerHTML = '<div class="empty-state">沒有資料夾</div>';
-                folders.forEach(folder => folderGrid.innerHTML += `<div class="card" data-id="${folder.id}"><span class="icon">📁</span><span class="filename">${folder.name}</span></div>`);
+                folders.forEach(folder => {
+                    const ownerText = folder.owner ? `<div class="shared-by">共用者: ${folder.owner}</div>` : '';
+                    folderGrid.innerHTML += `
+                        <div class="card" data-id="${folder.id}">
+                            <span class="icon">📁</span>
+                            <div style="display:flex; flex-direction:column;">
+                                <span class="filename">${folder.name}</span>
+                            </div>
+                        </div>`;
+                });
                 
-                if (files.length === 0) fileGrid.innerHTML = '<div class="empty-state">目前沒有檔案，請將檔案拖曳進來</div>';
-                files.forEach(file => fileGrid.innerHTML += `<div class="card card-large" data-id="${file.id}"><span class="icon">${file.icon}</span><span class="filename">${file.name}</span></div>`);
+                // 渲染檔案
+                if (files.length === 0) fileGrid.innerHTML = '<div class="empty-state">目前沒有檔案</div>';
+                files.forEach(file => {
+                    const ownerText = file.owner ? `<div class="shared-by">共用者: ${file.owner}</div>` : '';
+                    fileGrid.innerHTML += `
+                        <div class="card card-large" data-id="${file.id}">
+                            <span class="icon">${file.icon}</span>
+                            <span class="filename">${file.name}</span>
+                            ${ownerText}
+                        </div>`;
+                });
                 
+                // 渲染麵包屑導覽 (動態判斷是屬於哪個大區域)
                 breadcrumb.innerHTML = '';
-                let path = []; let currId = currentFolderId;
-                while (currId !== 'root') {
+                let path = []; 
+                let currId = currentFolderId;
+                let rootName = "我的雲端硬碟";
+                let rootId = "root";
+
+                // 往上找父資料夾，直到碰到頂層 (root, shared, 或 computer)
+                while (currId !== 'root' && currId !== 'shared' && currId !== 'computer') {
                     const folder = fileSystem.find(f => f.id === currId);
                     if (folder) { path.unshift(folder); currId = folder.parentId; } else break;
                 }
-                breadcrumb.innerHTML = `<div class="breadcrumb-item" data-id="root">我的雲端硬碟</div>`;
+                
+                // 判斷頂層名稱
+                if (currId === 'shared') { rootName = "與我共用"; rootId = "shared"; }
+                else if (currId === 'computer') { rootName = "電腦"; rootId = "computer"; }
+
+                breadcrumb.innerHTML = `<div class="breadcrumb-item" data-id="${rootId}">${rootName}</div>`;
                 path.forEach(folder => { breadcrumb.innerHTML += `<span class="breadcrumb-separator">›</span><div class="breadcrumb-item" data-id="${folder.id}">${folder.name}</div>`; });
             }
             render();
 
-            // 拖曳上傳
+            // ================= 左側選單切換功能 =================
+            const navItems = document.querySelectorAll('.nav-item');
+            function setActiveNav(navId) {
+                navItems.forEach(item => item.classList.remove('active'));
+                document.getElementById(navId).classList.add('active');
+            }
+
+            document.getElementById('navHome').addEventListener('click', () => {
+                currentFolderId = 'root';
+                setActiveNav('navHome');
+                render();
+            });
+
+            document.getElementById('navComputer').addEventListener('click', () => {
+                currentFolderId = 'computer';
+                setActiveNav('navComputer');
+                render();
+            });
+
+            document.getElementById('navShared').addEventListener('click', () => {
+                currentFolderId = 'shared';
+                setActiveNav('navShared');
+                render();
+            });
+
+
+            // ================= 其他功能 (拖曳、預覽、右鍵) =================
             mainArea.addEventListener('dragover', (e) => { e.preventDefault(); mainArea.classList.add('drag-over'); });
             mainArea.addEventListener('dragleave', (e) => { e.preventDefault(); if (e.target === mainArea) mainArea.classList.remove('drag-over'); });
             mainArea.addEventListener('drop', (e) => {
@@ -229,6 +288,7 @@
                 if (droppedFiles.length > 0) {
                     Array.from(droppedFiles).forEach(file => {
                         const newId = generateId();
+                        // 檔案會上傳到目前所在的資料夾 (支援 root, shared, computer 等)
                         fileSystem.push({ id: newId, parentId: currentFolderId, type: 'file', name: file.name, icon: getIconByExtension(file.name) });
                         runtimeRealFiles[newId] = file;
                     });
@@ -236,7 +296,6 @@
                 }
             });
 
-            // ================= 檔案預覽處理器 =================
             mainArea.addEventListener('dblclick', (e) => {
                 const clickedCard = e.target.closest('.card');
                 if (!clickedCard) return;
@@ -248,8 +307,6 @@
                     currentFolderId = item.id; render();
                 } else {
                     document.getElementById('modalTitle').textContent = item.name;
-                    
-                    // 清除上次預覽狀態
                     modalBody.innerHTML = '<div style="color:white;">載入中...</div>';
                     if (currentPreviewUrl) { URL.revokeObjectURL(currentPreviewUrl); currentPreviewUrl = null; }
 
@@ -257,83 +314,49 @@
                     const ext = item.name.split('.').pop().toLowerCase();
 
                     if (realFile) {
-                        // 1. 圖片 / 影片
                         if (realFile.type.startsWith('image/')) {
                             currentPreviewUrl = URL.createObjectURL(realFile);
                             modalBody.innerHTML = `<img src="${currentPreviewUrl}" alt="預覽圖">`;
-                        
                         } else if (realFile.type.startsWith('video/')) {
                             currentPreviewUrl = URL.createObjectURL(realFile);
                             modalBody.innerHTML = `<video src="${currentPreviewUrl}" controls autoplay></video>`;
-                        
-                        // 2. PDF (瀏覽器原生支援)
                         } else if (ext === 'pdf') {
                             currentPreviewUrl = URL.createObjectURL(realFile);
                             modalBody.innerHTML = `<iframe src="${currentPreviewUrl}#toolbar=0" style="width:100%; height:100%; border:none;"></iframe>`;
-                        
-                        // 3. Excel (XLSX / CSV) - 透過 SheetJS
                         } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
                             const reader = new FileReader();
                             reader.onload = function(e) {
                                 try {
                                     const data = new Uint8Array(e.target.result);
                                     const workbook = XLSX.read(data, {type: 'array'});
-                                    const firstSheetName = workbook.SheetNames[0];
-                                    const htmlStr = XLSX.utils.sheet_to_html(workbook.Sheets[firstSheetName]);
+                                    const htmlStr = XLSX.utils.sheet_to_html(workbook.Sheets[workbook.SheetNames[0]]);
                                     modalBody.innerHTML = `<div class="document-preview-container"><div class="document-paper"><div style="overflow-x:auto;">${htmlStr.replace(/<table/g, '<table class="excel-table"')}</div></div></div>`;
-                                } catch (err) {
-                                    modalBody.innerHTML = `<div class="modal-fallback"><h3>❌ Excel 解析失敗</h3><p>檔案可能損毀或包含不支援的巨集</p></div>`;
-                                }
+                                } catch (err) { modalBody.innerHTML = `<div class="modal-fallback"><h3>❌ Excel 解析失敗</h3></div>`; }
                             };
                             reader.readAsArrayBuffer(realFile);
-
-                        // 4. Word (DOCX) - 透過 Mammoth.js
                         } else if (['doc', 'docx'].includes(ext)) {
                             const reader = new FileReader();
                             reader.onload = function(e) {
-                                const arrayBuffer = e.target.result;
-                                mammoth.convertToHtml({arrayBuffer: arrayBuffer})
-                                    .then(function(result) {
-                                        const html = result.value || "<p>(此文件為空)</p>";
-                                        modalBody.innerHTML = `<div class="document-preview-container"><div class="document-paper">${html}</div></div>`;
-                                    })
-                                    .catch(function(err) {
-                                        modalBody.innerHTML = `<div class="modal-fallback"><h3>❌ Word 解析失敗</h3><p>請確認檔案是否為標準的 .docx 格式</p></div>`;
-                                    });
+                                mammoth.convertToHtml({arrayBuffer: e.target.result}).then(function(result) {
+                                    modalBody.innerHTML = `<div class="document-preview-container"><div class="document-paper">${result.value || "<p>(此文件為空)</p>"}</div></div>`;
+                                }).catch(() => modalBody.innerHTML = `<div class="modal-fallback"><h3>❌ Word 解析失敗</h3></div>`);
                             };
                             reader.readAsArrayBuffer(realFile);
-
-                        // 5. PowerPoint (PPT / PPTX) - 前端技術限制
                         } else if (['ppt', 'pptx'].includes(ext)) {
-                            modalBody.innerHTML = `
-                                <div class="modal-fallback">
-                                    <div style="font-size: 5rem;">🟧</div>
-                                    <h3 style="color:#FFA500;">不支援 PowerPoint 線上預覽</h3>
-                                    <p style="max-width: 400px; line-height:1.6;">簡報檔案包含複雜的動畫與排版引擎，<br>純前端環境無法直接解析渲染。<br>在真實雲端硬碟中，這需要後端伺服器幫忙轉檔。</p>
-                                </div>`;
-
-                        // 6. 純文字 (TXT, 代碼等)
+                            modalBody.innerHTML = `<div class="modal-fallback"><div style="font-size: 5rem;">🟧</div><h3 style="color:#FFA500;">不支援 PowerPoint 線上預覽</h3><p>純前端環境無法直接解析渲染簡報動畫與排版。</p></div>`;
                         } else if (['txt', 'md', 'html', 'css', 'js', 'json'].includes(ext) || realFile.type.startsWith('text/')) {
                             const reader = new FileReader();
                             reader.onload = (event) => { modalBody.innerHTML = `<pre>${event.target.result.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`; };
                             reader.readAsText(realFile);
-                        
-                        // 7. 未知或不支援的檔案
                         } else {
-                            modalBody.innerHTML = `
-                                <div class="modal-fallback">
-                                    <div style="font-size: 5rem;">📦</div>
-                                    <h3>不支援線上預覽此格式</h3>
-                                    <p>已捕捉到檔案: ${Math.round(realFile.size / 1024)} KB</p>
-                                </div>`;
+                            modalBody.innerHTML = `<div class="modal-fallback"><div style="font-size: 5rem;">📦</div><h3>不支援線上預覽此格式</h3></div>`;
                         }
                     } else {
-                        // 記憶體內無實體檔案
                         modalBody.innerHTML = `
                             <div class="modal-fallback">
                                 <div style="font-size: 5rem;">${item.icon}</div>
                                 <h3>無法預覽真實內容</h3>
-                                <p style="max-width: 400px; line-height:1.6;">這是歷史紀錄或虛擬檔案。<br>因為本網站為純前端環境，重新整理後，記憶體中的真實檔案已釋放。<br>👉 <b>請重新將實體檔案拖曳進來，即可進行預覽。</b></p>
+                                <p style="max-width: 400px; line-height:1.6;">這是歷史紀錄或系統預設的虛擬檔案。<br>👉 <b>請將實體檔案拖曳進網頁，即可進行預覽。</b></p>
                             </div>`;
                     }
                     
@@ -341,11 +364,18 @@
                 }
             });
 
-            // 右鍵與其他操作
             mainArea.addEventListener('click', (e) => {
                 contextMenu.classList.remove('active'); 
                 const crumb = e.target.closest('.breadcrumb-item');
-                if (crumb) { currentFolderId = crumb.getAttribute('data-id'); render(); return; }
+                if (crumb) { 
+                    currentFolderId = crumb.getAttribute('data-id'); 
+                    render(); 
+                    // 同步更新左側選單的 Active 狀態
+                    if (currentFolderId === 'root') setActiveNav('navHome');
+                    if (currentFolderId === 'shared') setActiveNav('navShared');
+                    if (currentFolderId === 'computer') setActiveNav('navComputer');
+                    return; 
+                }
                 const clickedCard = e.target.closest('.card');
                 document.querySelectorAll('.card').forEach(c => c.classList.remove('selected'));
                 if (clickedCard) { clickedCard.classList.add('selected'); e.stopPropagation(); }
@@ -382,8 +412,11 @@
                 if (name && name.trim() !== '') { fileSystem.push({ id: generateId(), parentId: currentFolderId, type: 'folder', name: name }); saveData(); render(); showToast('✅ 資料夾建立成功'); }
             });
 
-            document.getElementById('goHomeBtn').addEventListener('click', () => { currentFolderId = 'root'; render(); });
-            document.getElementById('navHome').addEventListener('click', () => { currentFolderId = 'root'; render(); });
+            document.getElementById('goHomeBtn').addEventListener('click', () => { 
+                currentFolderId = 'root'; 
+                setActiveNav('navHome');
+                render(); 
+            });
             
             document.getElementById('closeModalBtn').addEventListener('click', () => { 
                 document.getElementById('fileModal').classList.remove('active'); 
