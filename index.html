@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的雲端空間 - 支援下載版</title>
+    <title>我的雲端空間 - 跨裝置同步版</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
@@ -42,11 +42,14 @@
         .container { display: flex; flex: 1; overflow: hidden; }
         .sidebar { width: 250px; background-color: var(--sidebar-bg); padding: 15px 0; display: flex; flex-direction: column; }
         
-        .action-buttons { padding: 0 15px 15px; display: flex; gap: 10px; }
-        .btn-new, .btn-upload { background-color: var(--card-bg); border: 1px solid var(--border-color); padding: 10px 15px; border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: bold; color: var(--text-color); display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); flex: 1; justify-content: center;}
+        .action-buttons { padding: 0 15px 15px; display: flex; flex-direction: column; gap: 10px; }
+        .btn-group { display: flex; gap: 10px; }
+        .btn-new, .btn-upload, .btn-sync { background-color: var(--card-bg); border: 1px solid var(--border-color); padding: 10px 15px; border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: bold; color: var(--text-color); display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); flex: 1;}
         .btn-new:hover, .btn-upload:hover { background-color: var(--hover-bg); }
+        .btn-sync { background-color: var(--active-bg); color: var(--active-text); border-color: transparent; }
+        .btn-sync:hover { background-color: #d2e3fc; }
 
-        .nav-list { list-style: none; flex: 1; }
+        .nav-list { list-style: none; flex: 1; margin-top: 10px;}
         .nav-item { padding: 10px 24px; color: var(--text-color); cursor: pointer; border-radius: 0 24px 24px 0; margin-right: 15px; display: flex; align-items: center; gap: 15px; font-size: 0.95rem; }
         .nav-item:hover { background-color: var(--hover-bg); }
         .nav-item.active { background-color: var(--active-bg); color: var(--active-text); font-weight: bold; }
@@ -79,12 +82,17 @@
         .empty-state { text-align: center; color: var(--text-light); padding: 40px; font-size: 1.1rem; grid-column: 1 / -1; }
         .shared-by { font-size: 0.75rem; color: var(--text-light); margin-top: 5px; }
 
-        /* ================= 預覽視窗 ================= */
+        /* ================= 預覽視窗 & 同步視窗 ================= */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--modal-overlay); justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(4px); }
         .modal-overlay.active { display: flex; }
         .modal-content { background-color: var(--bg-color); width: 90%; max-width: 1000px; height: 85%; border-radius: 12px; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.5); overflow: hidden; }
+        
+        /* 針對同步視窗的小型化設定 */
+        .modal-content.small-modal { max-width: 500px; height: auto; min-height: 400px; }
+        
         .modal-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--header-bg);}
         .close-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-light); }
+        
         .modal-body { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow-y: auto; background-color: #202124; color: white;}
         .modal-body img, .modal-body video { max-width: 100%; max-height: 100%; object-fit: contain; }
         .modal-body pre { background-color: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px; width: 95%; white-space: pre-wrap; font-size: 14px; text-align: left; overflow-y: auto; height: 95%; font-family: monospace; }
@@ -94,6 +102,13 @@
         table.excel-table { border-collapse: collapse; width: 100%; color: black; }
         table.excel-table th, table.excel-table td { border: 1px solid #d4d4d4; padding: 8px; text-align: left; }
         table.excel-table th { background-color: #f3f2f1; font-weight: bold; }
+
+        /* 同步視窗專用樣式 */
+        .sync-body { background-color: var(--card-bg); color: var(--text-color); padding: 20px; display: flex; flex-direction: column; gap: 15px; align-items: stretch; justify-content: flex-start;}
+        .sync-textarea { width: 100%; height: 150px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--search-bg); color: var(--text-color); resize: none; font-family: monospace; font-size: 12px; word-break: break-all;}
+        .sync-btn-group { display: flex; gap: 10px; justify-content: flex-end; }
+        .sync-btn-primary { background-color: var(--active-text); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .sync-btn-secondary { background-color: var(--hover-bg); color: var(--text-color); border: 1px solid var(--border-color); padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
 
         /* 右鍵與提示 */
         .context-menu { position: fixed; background-color: var(--menu-bg); border: 1px solid var(--border-color); box-shadow: 0 4px 6px rgba(0,0,0,0.2); border-radius: 8px; padding: 8px 0; z-index: 1000; display: none; min-width: 150px; }
@@ -119,7 +134,11 @@
     <div class="container">
         <aside class="sidebar">
             <div class="action-buttons">
-                <button class="btn-new" id="newFolderBtn">➕ 新資料夾</button>
+                <div class="btn-group">
+                    <button class="btn-new" id="newFolderBtn">➕ 新資料夾</button>
+                </div>
+                <!-- 新增：跨裝置同步按鈕 -->
+                <button class="btn-sync" id="openSyncBtn">🔄 跨裝置同步</button>
             </div>
             <ul class="nav-list">
                 <li class="nav-item active" id="navHome">🏠 我的雲端硬碟</li>
@@ -138,6 +157,7 @@
         </main>
     </div>
 
+    <!-- 檔案預覽視窗 -->
     <div class="modal-overlay" id="fileModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -148,7 +168,28 @@
         </div>
     </div>
 
-    <!-- 更新了右鍵選單，加入下載選項 -->
+    <!-- 跨裝置同步視窗 -->
+    <div class="modal-overlay" id="syncModal">
+        <div class="modal-content small-modal">
+            <div class="modal-header">
+                <div style="font-weight: 500;">🔄 跨裝置同步 (純前端方案)</div>
+                <button class="close-btn" id="closeSyncBtn">✖</button>
+            </div>
+            <div class="modal-body sync-body">
+                <p style="font-size: 0.9rem; color: var(--text-light); line-height: 1.5;">
+                    由於這是一個沒有資料庫的純前端網頁，若要在手機或其他電腦上查看目前的資料夾結構，請先在此處<b>「產生同步碼」</b>並複製。<br>接著在另一台裝置打開本網頁，貼上代碼並<b>「匯入」</b>即可。
+                </p>
+                <textarea id="syncCodeArea" class="sync-textarea" placeholder="點擊下方按鈕產生同步碼，或在此貼上另一台裝置的同步碼..."></textarea>
+                
+                <div class="sync-btn-group">
+                    <button class="sync-btn-secondary" id="generateSyncBtn">生成本機同步碼</button>
+                    <button class="sync-btn-secondary" id="copySyncBtn">複製代碼</button>
+                    <button class="sync-btn-primary" id="importSyncBtn">📥 匯入代碼覆蓋本機</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="context-menu" id="contextMenu">
         <div class="menu-item" id="menuDownload">⬇️ 下載</div>
         <div class="menu-divider"></div>
@@ -367,45 +408,23 @@
 
             document.addEventListener('click', () => contextMenu.classList.remove('active'));
 
-            // ================= 新增：下載功能邏輯 =================
             document.getElementById('menuDownload').addEventListener('click', () => {
                 if (!currentContextTargetId) return;
                 const item = fileSystem.find(f => f.id === currentContextTargetId);
-                
-                // 資料夾暫不支援下載
-                if (item.type === 'folder') {
-                    showToast('⚠️ 暫不支援下載整個資料夾，請個別下載檔案');
-                    return;
-                }
-
+                if (item.type === 'folder') { showToast('⚠️ 暫不支援下載整個資料夾'); return; }
                 const realFile = runtimeRealFiles[item.id];
                 let blobUrl;
-
-                if (realFile) {
-                    // 真實檔案下載：透過 URL.createObjectURL 把記憶體中的 File 給瀏覽器下載
-                    blobUrl = URL.createObjectURL(realFile);
-                } else {
-                    // 虛擬檔案下載：產生一個帶有說明文字的假檔案
-                    const fakeContent = `【虛擬檔案提示】\n\n這是一個在純前端網頁中模擬產生的虛擬檔案。\n您下載的檔名為：${item.name}\n\n如需測試真實下載功能，請將您的電腦檔案拖曳到網頁中，再對其點擊右鍵下載！`;
-                    const blob = new Blob([fakeContent], { type: 'text/plain;charset=utf-8' });
-                    blobUrl = URL.createObjectURL(blob);
+                if (realFile) { blobUrl = URL.createObjectURL(realFile); } 
+                else {
+                    const fakeContent = `【虛擬檔案提示】\n您下載的檔名為：${item.name}\n如需測試真實下載，請將電腦檔案拖曳到網頁中！`;
+                    blobUrl = URL.createObjectURL(new Blob([fakeContent], { type: 'text/plain;charset=utf-8' }));
                 }
-
-                // 建立隱藏的 <a> 標籤觸發下載
-                const link = document.createElement('a');
-                link.href = blobUrl;
-                link.download = item.name; // 設定下載的預設檔名
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                // 延遲釋放 URL 記憶體，確保瀏覽器有時間開始下載
+                const link = document.createElement('a'); link.href = blobUrl; link.download = item.name;
+                document.body.appendChild(link); link.click(); document.body.removeChild(link);
                 setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-                
                 showToast(`✅ 正在下載：${item.name}`);
             });
 
-            // 原本的右鍵功能
             document.getElementById('menuRename').addEventListener('click', () => {
                 if (!currentContextTargetId) return;
                 const item = fileSystem.find(f => f.id === currentContextTargetId);
@@ -426,9 +445,78 @@
             });
 
             document.getElementById('goHomeBtn').addEventListener('click', () => { currentFolderId = 'root'; setActiveNav('navHome'); render(); });
-            
             document.getElementById('closeModalBtn').addEventListener('click', () => { document.getElementById('fileModal').classList.remove('active'); modalBody.innerHTML = ''; });
             
+            // ================= 跨裝置同步功能 (Sync) =================
+            const syncModal = document.getElementById('syncModal');
+            const syncCodeArea = document.getElementById('syncCodeArea');
+
+            // 開啟同步視窗
+            document.getElementById('openSyncBtn').addEventListener('click', () => {
+                syncCodeArea.value = ''; // 清空文字框
+                syncModal.classList.add('active');
+            });
+
+            // 關閉同步視窗
+            document.getElementById('closeSyncBtn').addEventListener('click', () => {
+                syncModal.classList.remove('active');
+            });
+
+            // 1. 生成同步碼 (把 JSON 轉成 Base64 字串)
+            document.getElementById('generateSyncBtn').addEventListener('click', () => {
+                try {
+                    const jsonString = JSON.stringify(fileSystem);
+                    // btoa 是瀏覽器內建將字串轉為 Base64 的函數 (支援中文需使用 encodeURIComponent)
+                    const base64Code = btoa(encodeURIComponent(jsonString));
+                    syncCodeArea.value = base64Code;
+                    showToast('✅ 同步碼已生成');
+                } catch (e) {
+                    showToast('❌ 生成失敗');
+                }
+            });
+
+            // 2. 複製同步碼
+            document.getElementById('copySyncBtn').addEventListener('click', () => {
+                if (!syncCodeArea.value) {
+                    showToast('⚠️ 請先生成同步碼');
+                    return;
+                }
+                syncCodeArea.select();
+                document.execCommand('copy');
+                showToast('📋 已複製同步碼，請到另一台裝置貼上！');
+            });
+
+            // 3. 匯入同步碼覆蓋
+            document.getElementById('importSyncBtn').addEventListener('click', () => {
+                const code = syncCodeArea.value.trim();
+                if (!code) {
+                    showToast('⚠️ 請先貼上同步碼');
+                    return;
+                }
+                
+                if(confirm('⚠️ 警告：匯入同步碼將會覆蓋您目前裝置上的所有資料夾結構，確定要繼續嗎？')) {
+                    try {
+                        // 解碼 Base64 並轉回 JSON
+                        const jsonString = decodeURIComponent(atob(code));
+                        const importedData = JSON.parse(jsonString);
+                        
+                        if (Array.isArray(importedData)) {
+                            fileSystem = importedData; // 覆蓋資料
+                            saveData(); // 存入 LocalStorage
+                            currentFolderId = 'root'; // 回到首頁
+                            setActiveNav('navHome');
+                            render(); // 重新渲染畫面
+                            syncModal.classList.remove('active'); // 關閉視窗
+                            showToast('📥 成功還原跨裝置資料！');
+                        } else {
+                            throw new Error('格式錯誤');
+                        }
+                    } catch (e) {
+                        showToast('❌ 同步碼無效或已損毀');
+                    }
+                }
+            });
+
             document.getElementById('themeBtn').addEventListener('click', function() {
                 const isDark = document.body.getAttribute('data-theme') === 'dark';
                 document.body.setAttribute('data-theme', isDark ? '' : 'dark');
